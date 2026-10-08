@@ -1,20 +1,10 @@
-import {getDBConnection} from '@/lib/db'
+import categories from '@/lib/data/categories.json'
+import type {Category} from '@/lib/types'
 
 export async function getCategories(){
-  const db = await getDBConnection()
-
-  try {
-    return await db.all("SELECT * FROM categories")
-  } finally {
-    await db.close()
-  }
+  return categories as Category[]
 }
 
 export async function getCategoryBySlug(categorySlug:string){
-  const db = await getDBConnection()
-  try {
-    return await db.get("SELECT * FROM categories WHERE slug=?", [categorySlug])
-  } finally {
-    await db.close()
-  }
+  return (categories as Category[]).find((category) => category.slug === categorySlug)
 }

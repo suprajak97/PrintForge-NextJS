@@ -1,4 +1,5 @@
-import { getDBConnection } from '@/lib/db'
+import models from '@/lib/data/models.json'
+import type { Model } from '@/lib/types'
 
 export async function getModels({search, sort, categorySlug, page, modelsPerPage}:{
   search?:string,
@@ -7,88 +8,43 @@ export async function getModels({search, sort, categorySlug, page, modelsPerPage
   page:number,
   modelsPerPage:number
 }){
-  const db = await getDBConnection()
+  const result = (models as Model[]).filter((model) => {
+    const matchesSearch = !search ||
+      model.name.toLowerCase().includes(search.toLowerCase()) ||
+      model.description.toLowerCase().includes(search.toLowerCase())
+    const matchesCategory = !categorySlug || model.category === categorySlug
+    return matchesSearch && matchesCategory
+  })
 
-  let sql = "SELECT * FROM models"
-  const placeholders = []
-
-  if (search||categorySlug){
-    const where = []
-      if (search){
-        where.push("(name LIKE ? OR description LIKE ?)")
-        placeholders.push(`%${search}%`, `%${search}%`)
-      }
-      if (categorySlug){
-        where.push("category=?")
-        placeholders.push(categorySlug)
-      }
-
-      sql += " WHERE " + where.join(" AND ")
+  if (sort === 'alpha') {
+    result.sort((a, b) => a.name.localeCompare(b.name))
+  } else if (sort === 'popular') {
+    result.sort((a, b) => b.likes - a.likes)
+  } else if (sort === 'recent') {
+    result.sort((a, b) => b.dateAdded.localeCompare(a.dateAdded))
   }
 
-  if (sort){
-    if (sort==="alpha"){
-      sql += " ORDER BY name ASC"
-    }
-    if (sort==="popular"){
-      sql += " ORDER BY likes DESC"
-    }
-    if (sort==="recent"){
-      sql += " ORDER BY dateAdded DESC"
-    }
+  if (page && modelsPerPage) {
+    const offset = (page - 1) * modelsPerPage
+    return result.slice(offset, offset + modelsPerPage)
   }
 
-  
-
-  if (page && modelsPerPage){
-    const offset = (page-1) * modelsPerPage
-    sql += " LIMIT ? OFFSET ?"
-    placeholders.push(modelsPerPage, offset)
-  }
-
-  try {
-    return await db.all(sql, placeholders)
-  } finally {
-    await db.close()
-  }
+  return result
 }
 
 export async function getModelById(id:string){
-  const db = await getDBConnection()
-  try {
-    return await db.get(`SELECT * FROM models WHERE id=?`, [id])
-  } finally {
-    await db.close()
-  }
+  return (models as Model[]).find((model) => model.id === Number(id))
 }
 
 export async function getModelCount({search, categorySlug}:{
   search?:string,
   categorySlug?:string
 }){
-  const db = await getDBConnection()
-
-  let sql = "SELECT COUNT(*) AS count FROM models"
-  const placeholders = []
-
-  if (search||categorySlug){
-    const where = []
-      if (search){
-        where.push("(name LIKE ? OR description LIKE ?)")
-        placeholders.push(`%${search}%`, `%${search}%`)
-      }
-      if (categorySlug){
-        where.push("category=?")
-        placeholders.push(categorySlug)
-      }
-
-      sql += " WHERE " + where.join(" AND ")
-  }
-
-  try {
-    const result = await db.get(sql, placeholders)
-    return result.count
-  } finally {
-    await db.close()
-  }
+  return (models as Model[]).filter((model) => {
+    const matchesSearch = !search ||
+      model.name.toLowerCase().includes(search.toLowerCase()) ||
+      model.description.toLowerCase().includes(search.toLowerCase())
+    const matchesCategory = !categorySlug || model.category === categorySlug
+    return matchesSearch && matchesCategory
+  }).length
 }
